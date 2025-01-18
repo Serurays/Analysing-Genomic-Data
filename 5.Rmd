@@ -1,0 +1,128 @@
+---
+title: "Filters"
+output: html_notebook
+---
+
+```{r}
+library(ShortRead)
+
+sequencesFQ <- readFastq(dirPath = "myData/", pattern = "fastq")
+
+# Identify duplicate reads in the dataset 'fqSample'
+duplicateStatus <- srduplicated(sequencesFQ)
+table(duplicateStatus)
+sequencesFQ
+```
+
+```{r}
+# Remove duplicated reads from the dataset
+uniqueReads <- sequencesFQ[srduplicated(sequencesFQ) == FALSE]
+
+# Verify duplicates have been removed
+table(srduplicated(uniqueReads))
+uniqueReads
+```
+
+```{r}
+# Define a minimum width threshold for filtering
+minReadLength <- 51
+
+# Create a custom filter that excludes reads shorter than minReadLength
+lengthFilter <- srFilter(function(x) { width(x) > minReadLength }, name = "LengthThresholdFilter")
+
+# Apply the filter to a sample of reads
+filteredSample <- sequencesFQ[lengthFilter(sequencesFQ)]
+filteredSample
+```
+
+```{r}
+# Define a filter that allows a maximum of 10 ambiguous bases ('N's)
+ambiguousFilter <- nFilter(threshold = 10, .name = "AmbiguousBaseFilter")
+
+# Use the filter during data import
+filteredData <- readFastq(dirPath = "myData/",
+                          pattern = ".fastq",
+                          filter = ambiguousFilter)
+filteredData
+```
+
+```{r}
+# Create an ID-based filter for identifiers containing the string "180489"
+idBasedFilter <- idFilter(regex = "180489")
+
+# Apply the filter while reading fastq files
+filteredByID <- sequencesFQ[idBasedFilter(sequencesFQ)]
+filteredByID
+
+filteredIDs <- as.character(ShortRead::id(filteredByID))
+filteredIDs
+```
+
+```{r}
+selectedMotifReads <- sequencesFQ[substr(sread(sequencesFQ), 1, 5) == "ATGCA"]
+selectedMotifReads
+```
+
+```{r}
+class(selectedMotifReads)
+detail(selectedMotifReads)
+```
+
+```{r}
+myAFilter <- polynFilter(threshold = 5, nuc = c("A"))
+
+# Apply the filter to identify reads with at maximum 5 consecutive 'A's
+condition <- myAFilter(sequencesFQ)
+filteredByPolyA <- sequencesFQ[condition]
+
+# Examine the filtered sequences
+sread(filteredByPolyA)
+```
+
+```{r}
+# BiocManager::install("Rqc")
+
+library(Rqc)
+
+filePaths <- c("SRR3734824.region.fastq", "SRR3734820.region.fastq")
+
+# Run quality assessment using 4 CPU workers for parallelization
+qualityAssessed <- rqcQA(filePaths, workers = 1)
+qualityAssessed
+```
+```{r}
+# Set seed for reproducibility of the quality assessment
+set.seed(2025)
+
+# Perform a quality assessment on a sample of 500 sequences from each file
+sampleQuality <- rqcQA(filePaths, workers = 1, sample = TRUE, n = 500)
+sampleQuality
+```
+
+```{r}
+pairedFiles <- c("SRR3734824.region.fastq", "SRR3734820.region.fastq", "SRR3734796.region.fastq", "SRR3734798.region.fastq")
+
+# Indicate the pairing configuration using a numeric vector
+pairingVector <- c(1, 1, 2, 2)
+
+pairedQualityAssessment <- rqcQA(pairedFiles, workers = 1, pair = pairingVector)
+pairedQualityAssessment
+```
+
+```{r}
+# Generate an HTML quality control report
+reportPath <- rqcReport(qualityAssessed)
+
+# Open the report in a browser for viewing
+browseURL(reportPath)
+```
+
+```{r}
+rqcCycleAverageQualityPlot(qualityAssessed)
+```
+
+```{r}
+# Plot the overall read quality with a white background theme
+rqcReadQualityPlot(qualityAssessed) + theme_minimal()
+```
+
