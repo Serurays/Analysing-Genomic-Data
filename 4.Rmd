@@ -1,0 +1,115 @@
+---
+title: "ShortRead"
+output: html_document
+---
+
+
+```{r}
+# install.packages("BiocManager")
+
+# BiocManager::install("GenomicRanges")
+
+library(ShortRead)
+```
+
+```{r}
+# Read FASTA files
+sequencesFA <- readFasta(dirPath = "myData/", pattern = "fasta")
+print(sequencesFA)
+```
+
+```{r}
+methods(class = "ShortRead")
+```
+
+```{r}
+writeFasta(sequencesFA, file = "myData/exported_sequences.fasta")
+```
+
+```{r}
+library(ShortRead)
+
+sequencesFQ <- readFastq(dirPath = "myData/", pattern = "fastq")
+sequencesFQ
+```
+
+```{r}
+methods(class = "ShortReadQ")
+```
+
+```{r}
+writeFastq(sequencesFQ, file = "myData/exported_sequences.fastq.gz")
+```
+
+```{r}
+library(ShortRead)
+
+# Set the seed for reproducibility
+set.seed(999)
+
+# Subsample of 600 bases
+samplerObj <- FastqSampler("myData/SRR3734824.region.fastq", 600)
+
+# Save the yield of 600 read sequences
+sampleSubset <- yield(samplerObj)
+
+# Class of the result
+class(sampleSubset)
+
+# Number of reads
+length(sampleSubset)
+```
+
+```{r}
+qualityStrings <- quality(sequencesFQ)
+head(qualityStrings, 3)
+
+phredValues <- PhredQuality(qualityStrings)
+head(phredValues, 3)
+
+intScores <- as(phredValues, "IntegerList")
+head(intScores, 3)
+```
+
+```{r}
+qualitySummary <- qa(sequencesFQ, lane = 1)
+names(qualitySummary)
+
+qualitySummary[["baseQuality"]]
+```
+
+```{r}
+browseURL(report(qualitySummary))
+```
+
+```{r}
+alphabetData <- alphabetByCycle(sread(sequencesFQ))
+(alphabetData)
+```
+
+
+```{r}
+nucMatrix <- t(alphabetData[1:4, ])
+
+nucMatrix
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Convert nucMatrix to a tibble with row names as 'cycle'
+nucTibble <- nucMatrix %>%
+  as_tibble(rownames = "cycle") %>% 
+  pivot_longer(-cycle, names_to = "nucleotide", values_to = "count") %>% 
+  mutate(cycle = as.numeric(cycle))  # Ensure cycle is numeric for plotting
+
+# Plot nucleotide distribution
+ggplot(nucTibble, aes(x = cycle, y = count, color = nucleotide)) +
+  geom_line(size = 0.5) +
+  labs(y = "Frequency", x = "Cycle", title = "Nucleotide Distribution by Cycle") +
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())
+```
+
